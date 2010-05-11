@@ -28,7 +28,7 @@ define('VIEWS_SEND_PRIORITY_LOWEST', 5);
 define('VIEWS_SEND_MAX_EXECUTION_TIME', ini_get('max_execution_time'));
 
 
-// === Action implementatio ====================================================
+// === Action implementation ===================================================
 
 /**
  * Implementation of hook_action_info()
@@ -41,6 +41,7 @@ function views_send_action_info() {
       'type' => 'system',
       'description' => t('Send mass mail'),
       'configurable' => TRUE,
+      'permissions' => array('mass mailing with views_send'),
     ),
   );
 }
@@ -316,7 +317,10 @@ function views_send_menu() {
  * @see http://api.drupal.org/api/function/hook_perm/6
  */
 function views_send_perm() {
-  return array('administer views_send');
+  return array(
+    'administer views_send',
+    'mass mailing with views_send'
+  );
 }
 
 /**
