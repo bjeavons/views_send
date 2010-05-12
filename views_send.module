@@ -75,16 +75,26 @@ function views_send_mail_action_form($context) {
     '#maxlen' => 255,
   );
 
+  // Get fields.
   if (isset($context['view']->display[$context['view']->current_display]->display_options['fields'])) {
-    $fields_view =& $current_display->display_options['fields'];
+    $fields_view =& $context['view']->display[$context['view']->current_display]->display_options['fields'];
   }
   else {
     $fields_view =& $context['view']->display['default']->display_options['fields'];
   }
+
+  // Get relationships.
+  if (isset($context['view']->display[$context['view']->current_display]->display_options['relationships'])) {
+    $rel_view =& $context['view']->display[$context['view']->current_display]->display_options['relationships'];
+  }
+  else {
+    $rel_view =& $context['view']->display['default']->display_options['relationships'];
+  }
+
   $fields = array('' => '<'. t('select') .'>');
   $tokens = array();
   foreach ($fields_view as $field_name => $field) {
-    $field_key = $field['table'] .'_'. $field['field'];
+    $field_key = $field['table'] .'_'. ($field['relationship'] != 'none' ? $rel_view[$field['relationship']]['table'] .'_' : '') . $field['field'];
     $field_text = $field['label'] .' ('. $field_key .')';
     $fields[$field_key] = $field_text;
     $tokens['[views-send-'. $field_key .']'] = $field_text;
