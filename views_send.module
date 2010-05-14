@@ -454,7 +454,7 @@ function views_send_mail($key, &$message, $params) {
 function views_send_settings() {
   $form = array();
 
-  $throttle = drupal_map_assoc(array(1, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000));
+  $throttle = drupal_map_assoc(array(1, 10, 20, 30, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000));
   $throttle[0] = t('Unlimited');
 
   $form['views_send_throttle'] = array(
@@ -527,9 +527,11 @@ function views_send_send_from_spool() {
         break;
       }
     }
+  }
 
+  if ($ok + $fail > 0) {
     // Log results and exit.
-    watchdog('views_send', '%ok messages sent in %sec seconds, %fail failed sending.', array('%ok' => $ok, '%sec' => ceil(timer_read('views_send')), '%fail' => $fail));
+    watchdog('views_send', '%ok messages sent in %sec seconds, %fail failed sending.', array('%ok' => $ok, '%sec' => timer_read('views_send'), '%fail' => $fail));
   }
 }
 
@@ -556,7 +558,9 @@ function views_send_deliver($message) {
   // Send mail.
   if (module_exists('mimemail')) {
     $mail = drupal_mail('views_send', $key, $params['to']['formatted'], NULL, $params, $params['from']['formatted'], FALSE);
+
     $plain = ($message->format == 'plain');
+
     $mail['result'] = mimemail(
       $mail['from'],
       $mail['to'],
