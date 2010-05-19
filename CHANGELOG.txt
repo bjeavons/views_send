@@ -5,5 +5,5 @@ Views Send x.x-x.x, xxxx-xx-xx
 
 Views Send 6.x-1.x, xxxx-xx-xx
 ------------------------------
-#796980 by claudiu.cristea: Fixed Views fields IDs are not correct when using with relationship.
 #799296 by claudiu.cristea: Fixed Don't log all messages.
+#796980 by claudiu.cristea: Fixed Views fields IDs are not correct when using with relationship.
