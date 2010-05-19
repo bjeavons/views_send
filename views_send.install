@@ -138,3 +138,22 @@ function views_send_uninstall() {
   db_query("DELETE FROM {variable} WHERE name LIKE 'views_send_%'");
   db_query("DELETE FROM {cache} WHERE cid LIKE 'variables%'");
 }
+
+/**
+ * Remove unused variables.
+ */
+function views_send_update_6001() {
+  variable_del('views_send_format');
+  variable_del('views_send_from_mail');
+  variable_del('views_send_from_name');
+  variable_del('views_send_headers');
+  variable_del('views_send_message');
+  variable_del('views_send_priority');
+  variable_del('views_send_receipt');
+  variable_del('views_send_remember');
+  variable_del('views_send_subject');
+  variable_del('views_send_tokens');
+  variable_del('views_send_to_mail');
+  variable_del('views_send_to_name');
+  return array();
+}

@@ -52,6 +52,7 @@ function views_send_action_info() {
  * @see http://drupal.org/node/172152
  */
 function views_send_mail_action_form($context) {
+  $display = $context['view']->name .':'. $context['view']->current_display;
   $form = array();
   $form['from'] = array(
     '#type' => 'fieldset',
@@ -63,7 +64,7 @@ function views_send_mail_action_form($context) {
     '#type' => 'textfield',
     '#title' => t('Sender\'s name'),
     '#description' => t('Enter the sendes\' human readable name.'),
-    '#default_value' => variable_get('views_send_from_name', variable_get('site_name', '')),
+    '#default_value' => variable_get('views_send_from_name_'. $display, variable_get('site_name', '')),
     '#maxlen' => 255,
   );
   $form['from']['views_send_from_mail'] = array(
@@ -71,7 +72,7 @@ function views_send_mail_action_form($context) {
     '#title' => t('Sender\'s e-mail'),
     '#description' => t('Enter the sendes\' E-mail address.'),
     '#required' => TRUE,
-    '#default_value' => variable_get('views_send_from_mail', variable_get('site_mail', ini_get('sendmail_from'))),
+    '#default_value' => variable_get('views_send_from_mail_'. $display, variable_get('site_mail', ini_get('sendmail_from'))),
     '#maxlen' => 255,
   );
 
@@ -116,14 +117,14 @@ function views_send_mail_action_form($context) {
     '#title' => t('Field used for recipient\'s name'),
     '#description' => t('Select which field from the current view will be used as recipient\'s name.'),
     '#options' => $fields,
-    '#default_value' => variable_get('views_send_to_name', ''),
+    '#default_value' => variable_get('views_send_to_name_'. $display, ''),
   );
   $form['to']['views_send_to_mail'] = array(
     '#type' => 'select',
     '#title' => t('Field used for recipient\'s E-mail'),
     '#description' => t('Select which field from the current view will be used as recipient\'s E-mail.'),
     '#options' => $fields,
-    '#default_value' => variable_get('views_send_to_mail', ''),
+    '#default_value' => variable_get('views_send_to_mail_'. $display, ''),
     '#required' => TRUE,
   );
   $form['mail'] = array(
@@ -138,7 +139,7 @@ function views_send_mail_action_form($context) {
     '#description' => t('Enter the E-mail\'s subject line.'),
     '#maxlen' => 255,
     '#required' => TRUE,
-    '#default_value' => variable_get('views_send_subject', ''),
+    '#default_value' => variable_get('views_send_subject_'. $display, ''),
   );
   $form['mail']['views_send_message'] = array(
     '#type' => 'textarea',
@@ -146,7 +147,7 @@ function views_send_mail_action_form($context) {
     '#description' => t('Enter the body of the message'),
     '#required' => TRUE,
     '#rows' => 10,
-    '#default_value' => variable_get('views_send_message', ''),
+    '#default_value' => variable_get('views_send_message_'. $display, ''),
   );
   $form['mail']['token'] = array(
     '#type' => 'fieldset',
@@ -173,7 +174,7 @@ function views_send_mail_action_form($context) {
     '#title' => t('Format'),
     '#options' => _views_send_format_options(),
     '#description' => $description,
-    '#default_value' => variable_get('views_send_format', 'plain'),
+    '#default_value' => variable_get('views_send_format_'. $display, 'plain'),
   );
   $form['additional']['views_send_priority'] = array(
     '#type' => 'select',
@@ -187,12 +188,12 @@ function views_send_mail_action_form($context) {
       VIEWS_SEND_PRIORITY_LOWEST => t('lowest')
     ),
     '#description' => t('Note that email priority is ignored by a lot of email programs.'),
-    '#default_value' => variable_get('views_send_priority', 0),
+    '#default_value' => variable_get('views_send_priority_'. $display, 0),
   );
   $form['additional']['views_send_receipt'] = array(
     '#type' => 'checkbox',
     '#title' => t('Request receipt'),
-    '#default_value' => variable_get('views_send_receipt', 0),
+    '#default_value' => variable_get('views_send_receipt_'. $display, 0),
     '#description' => t('Request a Read Receipt from your E-mails. A lot of email programs ignore these so it is not a definitive indication of how many people have read your message.'),
   );
   $form['additional']['views_send_headers'] = array(
@@ -200,13 +201,13 @@ function views_send_mail_action_form($context) {
     '#title' => t('Additional headers'),
     '#description' => t("Additional headers to be send with the message. You'll have to enter one per line. Example:<pre>Reply-To: noreply@example.com\nX-MyCustomHeader: Whatever</pre>"),
     '#rows' => 4,
-    '#default_value' => variable_get('views_send_headers', ''),
+    '#default_value' => variable_get('views_send_headers_'. $display, ''),
   );
 
   $form['views_send_remember'] = array(
     '#type' => 'checkbox',
     '#title' => t('Remember these values next time when you will send mass mail.'),
-    '#default_value' => variable_get('views_send_remember', TRUE),
+    '#default_value' => variable_get('views_send_remember_'. $display, TRUE),
   );
   return $form;
 }
@@ -245,6 +246,7 @@ function views_send_mail_action_validate($form, $form_state) {
  * @see http://drupal.org/node/172152
  */
 function views_send_mail_action_submit($form, &$form_state) {
+  $display = $form_state['storage'][1]['plugin']->view->name .':'. $form_state['storage'][1]['plugin']->view->current_display;
   $values =& $form_state['values'];
   $return = array(
     // TODO: Do we need this?
@@ -259,7 +261,7 @@ function views_send_mail_action_submit($form, &$form_state) {
   foreach ($values as $key => $value) {
     if (substr($key, 0, 11) == 'views_send_') {
       if ($values['views_send_remember']) {
-        variable_set($key, $value);
+        variable_set($key .'_'. $display, $value);
       }
       $return += array($key => $value);
     }
