@@ -294,7 +294,7 @@ function views_send_mail_action($object, $context) {
 
   // Let Token module operate substitutions.
   if (module_exists('token')) {
-    token_normalize_context($context);
+    _views_send_normalize_context($context);
     $subject = token_replace_multiple($subject, $context);
     $message = token_replace_multiple($message, $context);
   }
@@ -775,12 +775,16 @@ function _views_send_absolute_mail_urls($match) {
 }
 
 /**
- * If token_action.module is not enabled we'll have to define the function.
+ * Normalizing the context. If token_action.module is not enabled we'll have to
+ * normalize here. Otherwise use token_normalize_context().
  *
  * @see http://drupalcontrib.org/api/function/token_normalize_context/6
  */
-if (!function_exists('token_normalize_context')) {
-  function token_normalize_context(&$context) {
+function _views_send_normalize_context(&$context) {
+  if (function_exists('token_normalize_context')) {
+    token_normalize_context($context);
+  }
+  else {
     $context['global'] = NULL;
     if (empty($context['user']) && !empty($context['node'])) {
       $context['user'] = user_load(array('uid' => $context['node']->uid));
