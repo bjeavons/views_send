@@ -5,6 +5,7 @@ Views Send x.x-x.x, xxxx-xx-xx
 
 Views Send 6.x-1.x, xxxx-xx-xx
 ------------------------------
+#804248 by claudiu.cristea: Added Add input formats to mesage body.
 #801586 by claudiu.cristea | eliosh: Fixed Error while validating recipient email address.
 #799308 by claudiu.cristea: Fixed Views main field has incorrect key.
 #801798 by claudiu.cristea | kevinwalsh: Fixed Conflict with Token Actions module.

@@ -149,14 +149,16 @@ function views_send_mail_action_form($context) {
   $form['mail']['views_send_message'] = array(
     '#type' => 'textarea',
     '#title' => t('Message'),
-    '#description' => t('Enter the body of the message'),
+    '#description' => t('Enter the body of the message. You can use the following token replacements.'),
     '#required' => TRUE,
     '#rows' => 10,
     '#default_value' => variable_get('views_send_message_'. $display, ''),
   );
+  $form['mail']['views_send_message_format'] = filter_form(variable_get('views_send_message_format_'. $display, FILTER_FORMAT_DEFAULT));
   $form['mail']['token'] = array(
     '#type' => 'fieldset',
     '#title' => t('Replacements'),
+    '#description' => t('You can use these token replacements in Subject or Message Body.'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
   );
@@ -164,6 +166,7 @@ function views_send_mail_action_form($context) {
     '#type' => 'markup',
     '#value' => theme('views_send_token_help', $tokens),
   );
+
   $form['additional'] = array(
     '#type' => 'fieldset',
     '#title' => t('Additional E-mail options'),
@@ -306,7 +309,10 @@ function views_send_mail_action($object, $context) {
   $time = time();
 
   $to_name = $context['views_send_to_name'] ? $context['row']->{$context["views_send_to_name"]} : '';
-  $to_mail = $context['views_send_to_mail'] ? $context['row']->{$context["views_send_to_mail"]} : '';
+  $to_mail = $context['views_send_to_mail'];
+
+  $subject = $context['views_send_subject'];
+  $message = check_markup($context['views_send_message'], $context['views_send_message_format']);
 
   // Populate row/context tokens.
   $token_keys = array_keys($context['views_send_tokens']);
@@ -315,8 +321,8 @@ function views_send_mail_action($object, $context) {
     $field = substr(substr($token, 12), 0, -1);
     $token_values[] = $context['row']->{$field};
   }
-  $subject = str_replace($token_keys, $token_values, $context['views_send_subject']);
-  $message = str_replace($token_keys, $token_values, $context['views_send_message']);
+  $subject = str_replace($token_keys, $token_values, $subject);
+  $message = str_replace($token_keys, $token_values, $message);
 
   // Let Token module operate substitutions.
   if (module_exists('token')) {
