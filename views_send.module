@@ -95,7 +95,12 @@ function views_send_mail_action_form($context) {
   $fields = array('' => '<'. t('select') .'>');
   $tokens = array();
   foreach ($fields_view as $field_name => $field) {
-    $field_key = $field['table'] .'_'. ($field['relationship'] != 'none' ? $rel_view[$field['relationship']]['table'] .'_' : '') . $field['field'];
+    if ($field['table'] == $context['view']->base_table && $field['relationship'] == 'none' && $field_name == $context['view']->base_field) {
+      $field_key = $field['field'];
+    }
+    else {
+      $field_key = $field['table'] .'_'. ($field['relationship'] != 'none' ? $rel_view[$field['relationship']]['table'] .'_' : '') . $field['field'];
+    }
     $field_text = $field['label'] .' ('. $field_key .')';
     $fields[$field_key] = $field_text;
     $tokens['[views-send-'. $field_key .']'] = $field_text;
