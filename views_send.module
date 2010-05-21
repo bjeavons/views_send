@@ -309,7 +309,7 @@ function views_send_mail_action($object, $context) {
   $time = time();
 
   $to_name = $context['views_send_to_name'] ? $context['row']->{$context["views_send_to_name"]} : '';
-  $to_mail = $context['views_send_to_mail'];
+  $to_mail = $context['row']->{$context["views_send_to_mail"]};
 
   $subject = $context['views_send_subject'];
   $message = check_markup($context['views_send_message'], $context['views_send_message_format']);
