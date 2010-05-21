@@ -233,14 +233,35 @@ function views_send_mail_action_validate($form, $form_state) {
   // Check in the column selected as E-mail contain valid E-mail values.
   if (!empty($values['views_send_to_mail'])) {
     $wrong_addresses = 0;
-    foreach ($form_state['storage'][1]['objects']['selection'] as $oid => $row) {
-      $email = $row->{$values["views_send_to_mail"]};
+
+    /**
+     * "views_send_mail_action" was the only action configured and "Merge single
+     * action's form with node selection view" checkbox is checked. We are on
+     * first submit and the $form_state['storage'] is not populated yet.
+     */
+    if ($values['step'] == VIEWS_BULK_OPS_STEP_SINGLE) {
+      // Normalize selection.
+      _views_bulk_operations_adjust_selection($values['objects']['selection'], $values['objects']['select_all'], $values['exposed_input'], $values['arguments'], $values['plugin']);
+      $records =& $values['objects']['selection'];
+    }
+    /**
+     * Common usage: "views_send_mail_action" isn't the only action configured
+     * or "Merge single action's form with node selection view" checkbox is
+     * checked. $form_state['storage'] is populated and we will use it.
+     */
+    else {
+      $records =& $form_state['storage'][1]['objects']['selection'];
+    }
+
+    foreach ($records as $record) {
+      $email = $record->{$values["views_send_to_mail"]};
       if (!valid_email_address($email)) {
         $wrong_addresses++;
       }
     }
+
     if ($wrong_addresses) {
-      form_set_error('to_mail', t('The field used for recipient\'s E-mail %field contains no valid E-mail addresses. Choose other field to act as recipient E-mail.', array('%field' => $values['views_send_to_mail'])));
+      form_set_error('to_mail', t('The field used for recipient\'s E-mail %field contains @wrong invalid E-mail addresses from a total of @total selected. Choose other field to act as recipient\'s E-mail or narrow the selection to a subset containing only valid addresses.', array('%field' => $values['views_send_to_mail'], '@wrong' => $wrong_addresses, '@total' => count($records))));
     }
   }
 }
