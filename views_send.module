@@ -22,6 +22,11 @@ define('VIEWS_SEND_PRIORITY_LOW', 4);
 define('VIEWS_SEND_PRIORITY_LOWEST', 5);
 
 /**
+ * Plain message format value.
+ */
+define('VIEWS_SEND_FORMAT_PLAIN', 'plain');
+
+/**
  * Capture PHP max_execution_time before drupal_cron_run().
  * Workaround for Drupal 6.14. See http://drupal.org/node/584334
  */
@@ -151,7 +156,7 @@ function views_send_mail_action_form($context) {
     '#rows' => 10,
     '#default_value' => variable_get('views_send_message_'. $display, ''),
   );
-  $form['mail']['views_send_message_format'] = filter_form(variable_get('views_send_message_format_'. $display, FILTER_FORMAT_DEFAULT));
+  $form['mail']['views_send_message_format'] = _views_send_filter_form(variable_get('views_send_message_format_'. $display, VIEWS_SEND_FORMAT_PLAIN));
   $form['mail']['token'] = array(
     '#type' => 'fieldset',
     '#title' => t('Replacements'),
@@ -169,17 +174,6 @@ function views_send_mail_action_form($context) {
     '#title' => t('Additional E-mail options'),
     '#collapsible' => TRUE,
     '#collapsed' => TRUE,
-  );
-  $description = t('E-mail format.');
-  if (!module_exists('mimemail')) {
-        $description .= ' '. t('Install <a href="@mime_mail_url">Mime Mail</a> module to send newsletters in HTML format.', array('@mime_mail_url' => 'http://drupal.org/project/mimemail'));
-  }
-  $form['additional']['views_send_format'] = array(
-    '#type' => 'select',
-    '#title' => t('Format'),
-    '#options' => _views_send_format_options(),
-    '#description' => $description,
-    '#default_value' => variable_get('views_send_format_'. $display, 'plain'),
   );
   $form['additional']['views_send_priority'] = array(
     '#type' => 'select',
@@ -309,7 +303,7 @@ function views_send_mail_action($object, $context) {
   $to_mail = $context['row']->{$context["views_send_to_mail"]};
 
   $subject = $context['views_send_subject'];
-  $message = check_markup($context['views_send_message'], $context['views_send_message_format']);
+  $message = ($context['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN) ? $context['views_send_message'] : check_markup($context['views_send_message'], $context['views_send_message_format']);
 
   // Populate row/context tokens.
   $token_keys = $token_values = array();
@@ -328,7 +322,7 @@ function views_send_mail_action($object, $context) {
   }
 
   // Queue the message to the spool table.
-  db_query("INSERT INTO {views_send_spool} (uid, timestamp, from_name, from_mail, to_name, to_mail, subject, message, format, priority, receipt, headers) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', %d, %d, '%s')", $user->uid, $time, $context['views_send_from_name'], $context['views_send_from_mail'], $to_name, $to_mail, $subject, $message, $context['views_send_format'], $context['views_send_priority'], $context['views_send_receipt'], $context['views_send_headers']);
+  db_query("INSERT INTO {views_send_spool} (uid, timestamp, from_name, from_mail, to_name, to_mail, subject, message, format, priority, receipt, headers) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', %d, %d, '%s')", $user->uid, $time, $context['views_send_from_name'], $context['views_send_from_mail'], $to_name, $to_mail, $subject, $message, $context['views_send_message_format'], $context['views_send_priority'], $context['views_send_receipt'], $context['views_send_headers']);
 }
 
 // === Hook implementations ====================================================
@@ -530,6 +524,7 @@ function views_send_send_from_spool() {
   $query = "SELECT * FROM {views_send_spool} WHERE status = %d ORDER BY tentatives ASC, timestamp ASC";
   $result = $limit ? db_query_range($query, 0, 0, $limit) : db_query($query, 0);
   while ($message = db_fetch_object($result)) {
+
     // Send the message.
     $status = views_send_deliver($message);
 
@@ -589,7 +584,7 @@ function views_send_deliver($message) {
   if (module_exists('mimemail')) {
     $mail = drupal_mail('views_send', $key, $params['to']['formatted'], NULL, $params, $params['from']['formatted'], FALSE);
 
-    $plain = ($message->format == 'plain');
+    $plain = ($message->format == VIEWS_SEND_FORMAT_PLAIN);
 
     $mail['result'] = mimemail(
       $mail['from'],
@@ -622,16 +617,74 @@ function views_send_clear_spool() {
 // === Helper functions ========================================================
 
 /**
- * Determine possible mail format options.
+ * This is a fork of filter_form() in order to allow adding the "Plain" option.
  *
- * The mime_mail module must be installed to send HTML mails.
+ * @see http://api.drupal.org/api/function/filter_form/6
+ *
+ * @param
+ *   The ID of the format that is currently selected.
+ *
+ * @return
+ *   Form API array for the form element.
  */
-function _views_send_format_options() {
-  $options = array('plain' => t('plain'));
-  if (module_exists('mimemail') || module_exists('htmlmail')) {
-    $options['html'] = t('html');
+function _views_send_filter_form($default_value) {
+  $form = array();
+  $parents = array('views_send_message_format');
+
+  // Return only the plain option. Use a hidden form item and only show tips.
+  if (!module_exists('mimemail')) {
+    $form[VIEWS_SEND_FORMAT_PLAIN] = array(
+      '#type' => 'value',
+      '#value' => VIEWS_SEND_FORMAT_PLAIN,
+      '#parents' => $parents,
+    );
+    $form['views_send_message_format']['guidelines'] = array(
+      '#type' => 'item',
+      '#title' => t('Formatting guidelines'),
+      '#value' => t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.'),
+    );
+    return $form;
   }
-  return $options;
+
+  $formats = filter_formats();
+  $extra = theme('filter_tips_more_info');
+
+  $form = array(
+    '#type' => 'fieldset',
+    '#title' => t('Message format'),
+    '#collapsible' => TRUE,
+    '#collapsed' => TRUE,
+    '#element_validate' => array('filter_form_validate'),
+  );
+
+  // Add "Plain" format first.
+  $form[VIEWS_SEND_FORMAT_PLAIN] = array(
+    '#type' => 'radio',
+    '#title' => t('Plain'),
+    '#default_value' => $default_value,
+    '#return_value' => VIEWS_SEND_FORMAT_PLAIN,
+    '#parents' => $parents,
+    '#description' => t('Messages will be send in plain format.'),
+    '#id' => form_clean_id('edit-'. implode('-', array_merge($parents, array(VIEWS_SEND_FORMAT_PLAIN)))),
+  );
+
+  // Multiple formats available: display radio buttons with tips.
+  foreach ($formats as $format) {
+    // Generate the parents as the autogenerator does, so we will have a
+    // unique id for each radio button.
+    $parents_for_id = array_merge($parents, array($format->format));
+    $form[$format->format] = array(
+      '#type' => 'radio',
+      '#title' => $format->name,
+      '#default_value' => $default_value,
+      '#return_value' => $format->format,
+      '#parents' => $parents,
+      '#description' => theme('filter_tips', _filter_tips($format->format, FALSE)),
+      '#id' => form_clean_id('edit-'. implode('-', $parents_for_id)),
+    );
+  }
+  $form[] = array('#value' => $extra);
+  return $form;
 }
 
 /**
