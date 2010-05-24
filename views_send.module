@@ -321,6 +321,11 @@ function views_send_mail_action($object, $context) {
     $message = token_replace_multiple($message, $context);
   }
 
+  // Process PHP code when only plain format is available.
+  if (!module_exists('mimemail') && _views_send_allow_php() && ($context['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN)) {
+    $message = drupal_eval($message);
+  }
+
   // Queue the message to the spool table.
   db_query("INSERT INTO {views_send_spool} (uid, timestamp, from_name, from_mail, to_name, to_mail, subject, message, format, priority, receipt, headers) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', %d, %d, '%s')", $user->uid, $time, $context['views_send_from_name'], $context['views_send_from_mail'], $to_name, $to_mail, $subject, $message, $context['views_send_message_format'], $context['views_send_priority'], $context['views_send_receipt'], $context['views_send_headers']);
 }
@@ -631,24 +636,7 @@ function _views_send_filter_form($default_value) {
   $form = array();
   $parents = array('views_send_message_format');
 
-  // Return only the plain option. Use a hidden form item and only show tips.
-  if (!module_exists('mimemail')) {
-    $form[VIEWS_SEND_FORMAT_PLAIN] = array(
-      '#type' => 'value',
-      '#value' => VIEWS_SEND_FORMAT_PLAIN,
-      '#parents' => $parents,
-    );
-    $form['views_send_message_format']['guidelines'] = array(
-      '#type' => 'item',
-      '#title' => t('Formatting guidelines'),
-      '#value' => t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.'),
-    );
-    return $form;
-  }
-
-  $formats = filter_formats();
-  $extra = theme('filter_tips_more_info');
-
+  // Format wrapper.
   $form = array(
     '#type' => 'fieldset',
     '#title' => t('Message format'),
@@ -656,6 +644,29 @@ function _views_send_filter_form($default_value) {
     '#collapsed' => TRUE,
     '#element_validate' => array('filter_form_validate'),
   );
+
+  // Return only the plain option. Use a hidden form item and only show tips.
+  if (!module_exists('mimemail')) {
+    $guidelines = array(t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.'));
+    if (_views_send_allow_php()) {
+      $guidelines[] = t('You may post PHP code. You should include &lt;?php ?&gt; tags.');
+    }
+
+    $form[VIEWS_SEND_FORMAT_PLAIN] = array(
+      '#type' => 'radio',
+      '#title' => t('Plain'),
+      '#default_value' => VIEWS_SEND_FORMAT_PLAIN,
+      '#return_value' => VIEWS_SEND_FORMAT_PLAIN,
+      '#parents' => $parents,
+      '#description' => count($guidelines) == 1 ? '<p>'. $guidelines[0] .'</p>' : theme('item_list', $guidelines),
+      '#id' => form_clean_id('edit-'. implode('-', array_merge($parents, array(VIEWS_SEND_FORMAT_PLAIN)))),
+    );
+
+    return $form;
+  }
+
+  $formats = filter_formats();
+  $extra = theme('filter_tips_more_info');
 
   // Add "Plain" format first.
   $form[VIEWS_SEND_FORMAT_PLAIN] = array(
@@ -669,7 +680,7 @@ function _views_send_filter_form($default_value) {
   );
 
   // Multiple formats available: display radio buttons with tips.
-  foreach ($formats as $format) {
+  foreach ($formats as $fid => $format) {
     // Generate the parents as the autogenerator does, so we will have a
     // unique id for each radio button.
     $parents_for_id = array_merge($parents, array($format->format));
@@ -874,6 +885,24 @@ function _views_send_normalize_context(&$context) {
       $context['node'] = node_load($context['comment']->nid);
     }
   }
+}
+
+/**
+ * Find out if the current user is allowed to use the PHP filter.
+ */
+function _views_send_allow_php() {
+  static $allow_php;
+  if (!isset($allow_php)) {
+    $allow_php = FALSE;
+    $result = db_query("SELECT format FROM {filters} WHERE module = 'php'");
+    while ($row = db_fetch_object($result)) {
+      if (filter_access($row->format)) {
+        $allow_php = TRUE;
+        break;
+      }
+    }
+  }
+  return $allow_php;
 }
 
 // === Theming functions =======================================================
