@@ -645,39 +645,33 @@ function _views_send_filter_form($default_value) {
     '#element_validate' => array('filter_form_validate'),
   );
 
-  // Return only the plain option. Use a hidden form item and only show tips.
-  if (!module_exists('mimemail')) {
-    $guidelines = array(t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.'));
-    if (_views_send_allow_php()) {
-      $guidelines[] = t('You may post PHP code. You should include &lt;?php ?&gt; tags.');
-    }
+  // Mime Mail module existence.
+  $mimemail = module_exists('mimemail');
 
-    $form[VIEWS_SEND_FORMAT_PLAIN] = array(
-      '#type' => 'radio',
-      '#title' => t('Plain'),
-      '#default_value' => VIEWS_SEND_FORMAT_PLAIN,
-      '#return_value' => VIEWS_SEND_FORMAT_PLAIN,
-      '#parents' => $parents,
-      '#description' => count($guidelines) == 1 ? '<p>'. $guidelines[0] .'</p>' : theme('item_list', $guidelines),
-      '#id' => form_clean_id('edit-'. implode('-', array_merge($parents, array(VIEWS_SEND_FORMAT_PLAIN)))),
-    );
+  $guidelines = array();
+  $guidelines[] = $mimemail ? t('Messages will be send in plain format.') : t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.');
+  if (!$mimemail && _views_send_allow_php()) {
+    $guidelines[] = t('You may post PHP code. You should include &lt;?php ?&gt; tags.');
+  }
+  $guidelines = count($guidelines) == 1 ? '<p>'. $guidelines[0] .'</p>' : theme('item_list', $guidelines);
 
+  $form[VIEWS_SEND_FORMAT_PLAIN] = array(
+    '#type' => 'radio',
+    '#title' => t('Plain'),
+    '#default_value' => $mimemail ? $default_value : VIEWS_SEND_FORMAT_PLAIN,
+    '#return_value' => VIEWS_SEND_FORMAT_PLAIN,
+    '#parents' => $parents,
+    '#description' => $guidelines,
+    '#id' => form_clean_id('edit-'. implode('-', array_merge($parents, array(VIEWS_SEND_FORMAT_PLAIN)))),
+  );
+
+  // If Mime Mail module is not present we allow only plain format.
+  if (!$mimemail) {
     return $form;
   }
 
   $formats = filter_formats();
   $extra = theme('filter_tips_more_info');
-
-  // Add "Plain" format first.
-  $form[VIEWS_SEND_FORMAT_PLAIN] = array(
-    '#type' => 'radio',
-    '#title' => t('Plain'),
-    '#default_value' => $default_value,
-    '#return_value' => VIEWS_SEND_FORMAT_PLAIN,
-    '#parents' => $parents,
-    '#description' => t('Messages will be send in plain format.'),
-    '#id' => form_clean_id('edit-'. implode('-', array_merge($parents, array(VIEWS_SEND_FORMAT_PLAIN)))),
-  );
 
   // Multiple formats available: display radio buttons with tips.
   foreach ($formats as $fid => $format) {
