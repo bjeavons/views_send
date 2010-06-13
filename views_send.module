@@ -156,7 +156,7 @@ function views_send_mail_action_form($context) {
     '#rows' => 10,
     '#default_value' => variable_get('views_send_message_'. $display, ''),
   );
-  $form['mail']['views_send_message_format'] = _views_send_filter_form(variable_get('views_send_message_format_'. $display, VIEWS_SEND_FORMAT_PLAIN));
+  $form['mail']['format'] = _views_send_filter_form(variable_get('views_send_message_format_'. $display, VIEWS_SEND_FORMAT_PLAIN));
   $form['mail']['token'] = array(
     '#type' => 'fieldset',
     '#title' => t('Replacements'),
@@ -279,6 +279,7 @@ function views_send_mail_action_submit($form, &$form_state) {
     'views_send_tokens' => $values['views_send_tokens'],
   );
   foreach ($values as $key => $value) {
+    $key = ($key == 'format') ? 'views_send_message_format' : $key;
     if (substr($key, 0, 11) == 'views_send_') {
       if ($values['views_send_remember']) {
         variable_set($key .'_'. $display, $value);
@@ -478,7 +479,7 @@ function views_send_mail($key, &$message, $params) {
 // === Callbacks ===============================================================
 
 /**
- * Callback for admin/settings/views_send meni item.
+ * Callback for admin/settings/views_send menu item.
  */
 function views_send_settings() {
   $form = array();
@@ -540,7 +541,7 @@ function views_send_send_from_spool() {
     }
     else {
       // Increment tentatives so that next time this message
-      // will be scheduled with low priority
+      // will be scheduled with low priority.
       db_query("UPDATE {views_send_spool} SET tentatives = tentatives + 1 WHERE eid = %d", $message->eid);
       $fail++;
     }
@@ -634,7 +635,7 @@ function views_send_clear_spool() {
  */
 function _views_send_filter_form($default_value) {
   $form = array();
-  $parents = array('views_send_message_format');
+  $parents = array('format');
 
   // Format wrapper.
   $form = array(

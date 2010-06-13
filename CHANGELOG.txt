@@ -5,6 +5,7 @@ Views Send x.x-x.x, xxxx-xx-xx
 
 Views Send 6.x-1.x, xxxx-xx-xx
 ------------------------------
+#822444 by claudiu.cristea | mule77: Fixed Integration with WYSIWYG module.
 #808060 by claudiu.cristea: Added Add PHP parsing for plain messages.
 #805720 by claudiu.cristea: Fixed Integrate Plain format in standard Drupal input formats.
 #804248 by claudiu.cristea: Added Add input formats to mesage body.
