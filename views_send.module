@@ -406,7 +406,7 @@ function views_send_form_alter($form, $form_state, $form_id) {
     $recipients = array();
     foreach ($form_state['storage'][1]['objects']['selection'] as $oid => $row) {
       $email = $row->{$form_state["storage"]["operation_arguments"]["views_send_to_mail"]};
-      $name = $row->{$form_state["storage"]["operation_arguments"]["views_send_to_name"]};
+      $name = empty($form_state['storage']['operation_arguments']['views_send_to_name']) ? '' : $row->{$form_state["storage"]["operation_arguments"]["views_send_to_name"]};
       $recipients[] = check_plain(empty($name) ? $email : $name .' <'. $email .'>');
     }
 
