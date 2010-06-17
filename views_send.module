@@ -10,7 +10,6 @@
  * @ingroup views_send
  */
 
-
 /**
  * E-mail priorities.
  */
@@ -36,6 +35,11 @@ define('VIEWS_SEND_MAX_EXECUTION_TIME', ini_get('max_execution_time'));
  * Token rows pattern.
  */
 define('VIEWS_SEND_TOKEN_PATTERN', '[views-send-%s]');
+
+/**
+ * Detect and store Mime Mail module presence.
+ */
+define('VIEWS_SEND_MIMEMAIL', module_exists('mimemail'));
 
 // === Action implementation ===================================================
 
@@ -298,13 +302,18 @@ function views_send_mail_action_submit($form, &$form_state) {
  */
 function views_send_mail_action($object, $context) {
   global $user;
-  $time = time();
 
-  $to_name = $context['views_send_to_name'] ? $context['row']->{$context["views_send_to_name"]} : '';
+  // From: parts.
+  $from_mail = $context['views_send_from_mail'];
+  $from_name = $context['views_send_from_name'];
+
+  // To: parts.
   $to_mail = $context['row']->{$context["views_send_to_mail"]};
+  $to_name = $context['views_send_to_name'] ? $context['row']->{$context["views_send_to_name"]} : '';
 
+  // Formatting using selected input format.
   $subject = $context['views_send_subject'];
-  $message = ($context['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN) ? $context['views_send_message'] : check_markup($context['views_send_message'], $context['views_send_message_format']);
+  $body = ($context['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN) ? $context['views_send_message'] : check_markup($context['views_send_message'], $context['views_send_message_format']);
 
   // Populate row/context tokens.
   $token_keys = $token_values = array();
@@ -313,22 +322,30 @@ function views_send_mail_action($object, $context) {
     $token_values[] = $context['row']->{$field};
   }
   $subject = str_replace($token_keys, $token_values, $subject);
-  $message = str_replace($token_keys, $token_values, $message);
+  $body = str_replace($token_keys, $token_values, $body);
 
   // Let Token module operate substitutions.
   if (module_exists('token')) {
     _views_send_normalize_context($context);
     $subject = token_replace_multiple($subject, $context);
-    $message = token_replace_multiple($message, $context);
+    $body = token_replace_multiple($body, $context);
   }
 
   // Process PHP code when only plain format is available.
-  if (!module_exists('mimemail') && _views_send_allow_php() && ($context['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN)) {
-    $message = drupal_eval($message);
+  if (!VIEWS_SEND_MIMEMAIL && _views_send_allow_php() && ($context['views_send_message_format'] == VIEWS_SEND_FORMAT_PLAIN)) {
+    $body = drupal_eval($body);
   }
 
+  // We transform receipt, priority in headers,
+  // merging them to the user defined headers.
+  $headers = _views_send_headers($context['views_send_receipt'], $context['views_send_priority'], $from_mail, $context['views_send_headers']);
+
+  // All tokens replacements, PHP processing and formatting were done.
+  // We are performing now all usual mail processing, altering and preparing.
+  _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, $subject, $body, $headers, $context['views_send_message_format']);
+
   // Queue the message to the spool table.
-  db_query("INSERT INTO {views_send_spool} (uid, timestamp, from_name, from_mail, to_name, to_mail, subject, message, format, priority, receipt, headers) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s', %d, %d, '%s')", $user->uid, $time, $context['views_send_from_name'], $context['views_send_from_mail'], $to_name, $to_mail, $subject, $message, $context['views_send_message_format'], $context['views_send_priority'], $context['views_send_receipt'], $context['views_send_headers']);
+  db_query("INSERT INTO {views_send_spool} (uid, timestamp, from_name, from_mail, to_name, to_mail, subject, body, headers) VALUES (%d, %d, '%s', '%s', '%s', '%s', '%s', '%s', '%s')", $user->uid, time(), $from_name, $from_mail, $to_name, $to_mail, $subject, $body, serialize($headers));
 }
 
 // === Hook implementations ====================================================
@@ -447,7 +464,10 @@ function views_send_form_alter($form, $form_state, $form_id) {
  * @see http://api.drupal.org/api/function/hook_cron/6
  */
 function views_send_cron() {
+  // Send pending messages from spool.
   views_send_send_from_spool();
+
+  // Clear successful sent messages.
   views_send_clear_spool();
 }
 
@@ -460,14 +480,15 @@ function views_send_mail($key, &$message, $params) {
 
   // This is a simple message send. User inputs the content directly.
   if ($key == 'direct') {
+
     // Set the subject.
-    $message['subject'] =& $params['message']->subject;
+    $message['subject'] = $params['subject'];
 
     // Set the body.
-    $message['body'] =& $params['message']->message;
+    $message['body'] = $params['body'];
 
     // Add additional headers.
-    $message['headers'] += _views_send_headers($params['message']->receipt, $params['message']->priority, $params['from']['address'], $params['message']->headers);
+    $message['headers'] += $params['headers'];
   }
 
   // TODO: Implement node message parsing.
@@ -566,49 +587,52 @@ function views_send_send_from_spool() {
   }
 }
 
+/**
+ * Sending the message take from spool.
+ *
+ * @param $message
+ *   Database object containing the spooled message being send.
+ *
+ * @return
+ *   Boolean indicating if the message was sent successfully.
+ */
 function views_send_deliver($message) {
-  /**
-   * TODO: In the future, this module will be able to send an existing node.
-   * $key will have to make the difference. A value when we pickup a node, other
-   * when user inputs the subject & body of the message.
-   */
-  $key = 'direct';
+  $headers = unserialize($message->headers);
+  $to = _views_send_format_address($message->to_mail, $message->to_name);
+  $from = _views_send_format_address($message->from_mail, $message->from_name);
 
-  // Build message parameters.
-  $params = array();
-
-  // Sender's address.
-  $params['from'] = _views_send_format_address($message->from_mail, $message->from_name);
-
-  // Recipient's address.
-  $params['to'] = _views_send_format_address($message->to_mail, $message->to_name);
-
-  // Add the message to $params.
-  $params['message'] =& $message;
-
-  // Send mail.
-  if (module_exists('mimemail')) {
-    $mail = drupal_mail('views_send', $key, $params['to']['formatted'], NULL, $params, $params['from']['formatted'], FALSE);
-
-    $plain = ($message->format == VIEWS_SEND_FORMAT_PLAIN);
-
-    $mail['result'] = mimemail(
-      $mail['from'],
-      $mail['to'],
-      $mail['subject'],
-      $mail['body'],
-      $plain,
-      $mail['headers'],
-      $plain ? $mail['body'] : _views_send_html_to_text($mail['body'], TRUE),
-      // TODO: Add attachments capability....
-      array(),
-      ''
+  // Mime Mail has no separate rutines for sending and preparing.
+  // We are using pieces of code from mimemail() function to send the message.
+  if (VIEWS_SEND_MIMEMAIL) {
+    $mail = array(
+      'address' => $to,
+      'subject' => mime_header_encode($message->subject),
+      'body' => $message->body,
+      'sender' => $from,
+      'headers' => $headers,
     );
+
+    $engine = variable_get('mimemail_engine', 'mimemail') .'_mailengine';
+    if (!function_exists($engine)) {
+      return FALSE;
+    }
+
+    // Workaround a Mime Mail inclusion issue...
+    if ($engine == 'mimemail_mailengine') {
+      require_once(drupal_get_path('module', 'mimemail') .'/mimemail.inc');
+    }
+    return $engine('send', $mail);
   }
   else {
-    $mail = drupal_mail('views_send', $key, $params['to']['formatted'], NULL, $params, $params['from']['formatted'], TRUE);
+    $mail = array(
+      'to' => $to,
+      'subject' => $message->subject,
+      'body' => $message->body,
+      'from' => $from,
+      'headers' => $headers,
+    );
+    return drupal_mail_send($mail);
   }
-  return $mail['result'];
 }
 
 /**
@@ -646,12 +670,9 @@ function _views_send_filter_form($default_value) {
     '#element_validate' => array('filter_form_validate'),
   );
 
-  // Mime Mail module existence.
-  $mimemail = module_exists('mimemail');
-
   $guidelines = array();
-  $guidelines[] = $mimemail ? t('Messages will be send in plain format.') : t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.');
-  if (!$mimemail && _views_send_allow_php()) {
+  $guidelines[] = VIEWS_SEND_MIMEMAIL ? t('Messages will be send in plain format.') : t('Only plain format is available. If you want to format the message as HTML, you\'ll have to install and enable <a href="http://drupal.org/project/mimemail">Mime Mail</a> module.');
+  if (!VIEWS_SEND_MIMEMAIL && _views_send_allow_php()) {
     $guidelines[] = t('You may post PHP code. You should include &lt;?php ?&gt; tags.');
   }
   $guidelines = count($guidelines) == 1 ? '<p>'. $guidelines[0] .'</p>' : theme('item_list', $guidelines);
@@ -659,7 +680,7 @@ function _views_send_filter_form($default_value) {
   $form[VIEWS_SEND_FORMAT_PLAIN] = array(
     '#type' => 'radio',
     '#title' => t('Plain'),
-    '#default_value' => $mimemail ? $default_value : VIEWS_SEND_FORMAT_PLAIN,
+    '#default_value' => VIEWS_SEND_MIMEMAIL ? $default_value : VIEWS_SEND_FORMAT_PLAIN,
     '#return_value' => VIEWS_SEND_FORMAT_PLAIN,
     '#parents' => $parents,
     '#description' => $guidelines,
@@ -667,7 +688,7 @@ function _views_send_filter_form($default_value) {
   );
 
   // If Mime Mail module is not present we allow only plain format.
-  if (!$mimemail) {
+  if (!VIEWS_SEND_MIMEMAIL) {
     return $form;
   }
 
@@ -764,16 +785,90 @@ function _views_send_headers($receipt, $priority, $from, $additional_headers) {
 /**
  * Build a formatted E-mail address.
  */
-function _views_send_format_address($mail, $name) {
+function _views_send_format_address($mail, $name, $encode = TRUE) {
   $name = trim($name);
 
   // Do not format addres on Windows based PHP systems or when $name is empty.
-  $formatted_address = ((substr(PHP_OS, 0, 3) == 'WIN') || empty($name)) ? $mail : '"'. mime_header_encode($name) .'" <'. $mail .'>';
+  return ((substr(PHP_OS, 0, 3) == 'WIN') || empty($name)) ? $mail : '"'. ($encode ? mime_header_encode($name) : $name) .'" <'. $mail .'>';
+}
 
-  return array(
-    'address' => $mail,
-    'formatted' => $formatted_address,
-  );
+/**
+ * Perform all alteration and preparation before spooling.
+ *
+ * @param $from_name
+ *   String holding the Sender's name.
+ * @param $from_mail
+ *   String holding the Sender's E-mail.
+ * @param $to_name
+ *   String holding the Recipient's name.
+ * @param $to_mail
+ *   String holding the Recipient's E-mail.
+ * @param $subject
+ *   String with the E-mail subject. This argument can be altered here.
+ * @param $body
+ *   Text with the E-mail body. This argument can be altered here.
+ * @param $headers
+ *   Associative array with E-mail headers. This argument can be altered here.
+ * @param $format
+ *   String with the E-mail format.
+ */
+function _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, &$subject, &$body, &$headers, $format) {
+  /**
+   * TODO: In the future, this module will be able to send an existing node.
+   * $key will have to make the difference. A value when we pickup a node, other
+   * when user inputs the subject & body of the message.
+   */
+  $key = 'direct';
+
+  // Build message parameters.
+  $params = array();
+
+  $params['from_name'] = $from_name;
+  $params['from_mail'] = $from_mail;
+  $params['from_formatted'] = _views_send_format_address($from_mail, $from_name);
+
+  $params['to_name'] = $to_name;
+  $params['to_mail'] = $to_mail;
+  $params['to_formatted'] = _views_send_format_address($to_mail, $to_name);
+
+  $params['subject'] = $subject;
+  $params['body'] = $body;
+  $params['headers'] = $headers;
+
+  // Call Drupal standard mail function, but without sending.
+  $mail = drupal_mail('views_send', $key, $params['to_formatted'], NULL, $params, $params['from_formatted'], FALSE);
+
+  // Add additional Mime Mail processing.
+  if (VIEWS_SEND_MIMEMAIL) {
+    $plain = ($format == VIEWS_SEND_FORMAT_PLAIN);
+
+    // Fork Mime Mail preparation.
+    $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare';
+    if (function_exists($engine_prepare)) {
+      $mail = $engine_prepare(
+        $mail['from'],
+        $mail['to'],
+        $mail['subject'],
+        $mail['body'],
+        $plain,
+        $mail['headers'],
+        $plain ? $mail['body'] : _views_send_html_to_text($mail['body'], TRUE),
+        // TODO: Add attachments capability....
+        array(),
+        ''
+      );
+    }
+
+    // From: header may be broken after mimemail_prepare().
+    $mail['headers']['From'] = _views_send_format_address($from_mail, $from_name);
+
+    // We want to spool the Subject decoded.
+    $mail['subject'] = mime_header_decode($mail['subject']);
+  }
+
+  $subject = $mail['subject'];
+  $body = $mail['body'];
+  $headers = $mail['headers'];
 }
 
 /**

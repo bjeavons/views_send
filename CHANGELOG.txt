@@ -5,6 +5,7 @@ Views Send x.x-x.x, xxxx-xx-xx
 
 Views Send 6.x-1.x, xxxx-xx-xx
 ------------------------------
+#808058 by claudiu.cristea: Move all message processing before spooling.
 #827660 by claudiu.cristea | roball: Fixed Check for empty recipient name in previews.
 #822444 by claudiu.cristea | mule77: Fixed Integration with WYSIWYG module.
 #808060 by claudiu.cristea: Added Add PHP parsing for plain messages.

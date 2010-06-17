@@ -77,32 +77,12 @@ function views_send_schema() {
         'length' => 255,
         'not null' => TRUE,
         'default' => ''),
-      'message' => array(
+      'body' => array(
         'description' => 'The E-mail body.',
         'type' => 'text',
         'not null' => TRUE,
         'size' => 'big',
         'default' => ''),
-      'format' => array(
-        'description' => 'The E-mail format.',
-        'type' => 'varchar',
-        'length' => 5,
-        'not null' => TRUE,
-        'default' => 'plain'),
-      'priority' => array(
-        'description' => 'The E-mail priority flag.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'unsigned' => TRUE,
-        'default' => 0),
-      'receipt' => array(
-        'description' => 'The E-mail receipt flag.',
-        'type' => 'int',
-        'size' => 'tiny',
-        'not null' => TRUE,
-        'unsigned' => TRUE,
-        'default' => 0),
       'headers' => array(
         'description' => 'The E-mail additional headers.',
         'type' => 'text',
@@ -164,5 +144,25 @@ function views_send_update_6001() {
 function views_send_update_6002() {
   $ret = array();
   $ret[] = update_sql("DELETE FROM {variable} WHERE name LIKE 'views_send_format_%'");
+  return $ret;
+}
+
+/**
+ * Backend structure is altered for implementing http://drupal.org/node/808058
+ */
+function views_send_update_6003() {
+  $ret = array();
+
+  // Get updated schema.
+  $schema = views_send_schema();
+
+  // Rename body field from 'message' to 'body'.
+  db_change_field($ret, 'views_send_spool', 'message', 'body', $schema['views_send_spool']['fields']['body']);
+
+  // Drop other fields that are obsolete after spooling.
+  db_drop_field($ret, 'views_send_spool', 'format');
+  db_drop_field($ret, 'views_send_spool', 'priority');
+  db_drop_field($ret, 'views_send_spool', 'receipt');
+
   return $ret;
 }
