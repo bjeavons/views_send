@@ -1,4 +1,3 @@
-$Id$
 
 Views Send allow sending mass mailing using Views Bulk Operations - VBO
 (http://drupal.org/project/views_bulk_operations). The messages are queued in a
