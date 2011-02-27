@@ -847,7 +847,7 @@ function _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, &$
     $plain = ($format == VIEWS_SEND_FORMAT_PLAIN);
 
     // Fork Mime Mail preparation.
-    $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare';
+    $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare_message';
     if (function_exists($engine_prepare)) {
       $mail = $engine_prepare(
         $mail['from'],
