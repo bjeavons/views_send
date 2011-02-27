@@ -67,6 +67,10 @@ function views_send_action_info() {
 function views_send_mail_action_form($context) {
   $display = $context['view']->name .':'. $context['view']->current_display;
   $form = array();
+  $form['display'] = array(
+    '#type' => 'value',
+    '#value' => $display,
+  );
   $form['from'] = array(
     '#type' => 'fieldset',
     '#title' => t('Sender'),
@@ -270,7 +274,7 @@ function views_send_mail_action_validate($form, $form_state) {
  * @see http://drupal.org/node/172152
  */
 function views_send_mail_action_submit($form, &$form_state) {
-  $display = $form_state['storage'][1]['plugin']->view->name .':'. $form_state['storage'][1]['plugin']->view->current_display;
+  $display = $form['display']['#value'];
   $values =& $form_state['values'];
   $return = array(
     // TODO: Do we need this?
