@@ -243,7 +243,7 @@ function views_send_mail_action_validate($form, $form_state) {
      */
     if ($values['step'] == VIEWS_BULK_OPS_STEP_SINGLE) {
       // Normalize selection.
-      _views_bulk_operations_adjust_selection($values['objects']['selection'], $values['objects']['select_all'], $values['exposed_input'], $values['arguments'], $values['plugin']);
+      _views_bulk_operations_adjust_selection($values['objects']['selection'], $values['objects']['select_all'], $values['exposed_input'], $values['arguments'], $form['#plugin']);
       $records =& $values['objects']['selection'];
     }
     /**
