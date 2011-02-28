@@ -399,7 +399,7 @@ function views_send_theme($existing, $type, $theme, $path) {
 
 /**
  * Implementation of hook_form_alter()
- * We wand to alter the confirmation form, just before processing the action, so the the user can preview the whole message berore sending it.
+ * We want to alter the confirmation form, just before processing the action, so the the user can preview the whole message berore sending it.
  *
  * @see http://api.drupal.org/api/function/hook_form_alter/6
  */
