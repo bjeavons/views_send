@@ -816,7 +816,7 @@ function _views_send_format_address($mail, $name, $encode = TRUE) {
  * @param $format
  *   String with the E-mail format.
  */
-function _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, &$subject, &$body, &$headers, $format) {
+function _views_send_prepare_mail($from_name, $from_mail, $to_name, &$to_mail, &$subject, &$body, &$headers, $format) {
   /**
    * TODO: In the future, this module will be able to send an existing node.
    * $key will have to make the difference. A value when we pickup a node, other
@@ -847,7 +847,7 @@ function _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, &$
     $plain = ($format == VIEWS_SEND_FORMAT_PLAIN);
 
     // Fork Mime Mail preparation.
-    $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare_message';
+    $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare';
     if (function_exists($engine_prepare)) {
       $mail = $engine_prepare(
         $mail['from'],
