@@ -704,20 +704,21 @@ function _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, &$
 
     // Fork Mime Mail preparation.
     $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare_message';
-    if (function_exists($engine_prepare)) {
-      $mail = $engine_prepare(
-        $mail['from'],
-        $mail['to'],
-        $mail['subject'],
-        $mail['body'],
-        $plain,
-        $mail['headers'],
-        $plain ? $mail['body'] : _views_send_html_to_text($mail['body'], TRUE),
-        // TODO: Add attachments capability....
-        array(),
-        ''
-      );
+    if (!function_exists($engine_prepare)) {
+      $engine_prepare = 'mimemail_prepare_message';
     }
+    $mail = $engine_prepare(
+      $mail['from'],
+      $mail['to'],
+      $mail['subject'],
+      $mail['body'],
+      $plain,
+      $mail['headers'],
+      $plain ? $mail['body'] : _views_send_html_to_text($mail['body'], TRUE),
+      // TODO: Add attachments capability....
+      array(),
+      ''
+    );
 
     // From: header may be broken after mimemail_prepare().
     $mail['headers']['From'] = _views_send_format_address($from_mail, $from_name);
