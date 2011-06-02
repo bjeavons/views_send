@@ -79,14 +79,14 @@ function views_send_mail_action_form($context) {
   $form['from']['views_send_from_name'] = array(
     '#type' => 'textfield',
     '#title' => t('Sender\'s name'),
-    '#description' => t('Enter the sendes\' human readable name.'),
+    '#description' => t("Enter the sender's human readable name."),
     '#default_value' => variable_get('views_send_from_name_'. $display, variable_get('site_name', '')),
     '#maxlen' => 255,
   );
   $form['from']['views_send_from_mail'] = array(
     '#type' => 'textfield',
     '#title' => t('Sender\'s e-mail'),
-    '#description' => t('Enter the sendes\' E-mail address.'),
+    '#description' => t("Enter the sender's E-mail address."),
     '#required' => TRUE,
     '#default_value' => variable_get('views_send_from_mail_'. $display, variable_get('site_mail', ini_get('sendmail_from'))),
     '#maxlen' => 255,
@@ -408,7 +408,7 @@ function views_send_form_alter($form, $form_state, $form_id) {
   // TODO: Is there a better way to pickup the right form?
   if ($form_id == 'views_bulk_operations_form__1' && isset($form_state['storage']['operation_arguments']['views_send'])) {
 
-    drupal_set_title(t('Review and confirm the message that is about to be send'));
+    drupal_set_title(t('Review and confirm the message that is about to be sent'));
     drupal_add_css(drupal_get_path('module', 'views_send') .'/views_send.css');
 
     $args =& $form_state['storage']['operation_arguments'];
@@ -701,24 +701,9 @@ function _views_send_prepare_mail($from_name, $from_mail, $to_name, $to_mail, &$
   // Add additional Mime Mail processing.
   if (VIEWS_SEND_MIMEMAIL) {
     $plain = ($format == VIEWS_SEND_FORMAT_PLAIN);
+    $plain_text = $plain ? $mail['body'] : _views_send_html_to_text($mail['body'], TRUE);
 
-    // Fork Mime Mail preparation.
-    $engine_prepare = variable_get('mimemail_engine', 'mimemail') .'_prepare_message';
-    if (!function_exists($engine_prepare)) {
-      $engine_prepare = 'mimemail_prepare_message';
-    }
-    $mail = $engine_prepare(
-      $mail['from'],
-      $mail['to'],
-      $mail['subject'],
-      $mail['body'],
-      $plain,
-      $mail['headers'],
-      $plain ? $mail['body'] : _views_send_html_to_text($mail['body'], TRUE),
-      // TODO: Add attachments capability....
-      array(),
-      ''
-    );
+    $mail = mimemail($mail['from'], $mail['to'], $mail['subject'], $mail['body'], $plain, $mail['headers'], $plain_text, array(), '', FALSE);
 
     // From: header may be broken after mimemail_prepare().
     $mail['headers']['From'] = _views_send_format_address($from_mail, $from_name);
@@ -759,7 +744,7 @@ function _views_send_html_to_text($text) {
  * Helper function for _views_send_html_to_text().
  * Inspired from Simplenews.
  *
- * List of preg* regular expression patterns to search for and replace with
+ * List of preg regular expression patterns to search for and replace with.
  */
 function _views_send_html_replace() {
     return array(

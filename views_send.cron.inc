@@ -74,8 +74,6 @@ function views_send_deliver($message) {
   $to = _views_send_format_address($message->to_mail, $message->to_name);
   $from = _views_send_format_address($message->from_mail, $message->from_name);
 
-  // Mime Mail has no separate rutines for sending and preparing.
-  // We are using pieces of code from mimemail() function to send the message.
   if (VIEWS_SEND_MIMEMAIL) {
     $mail = array(
       'address' => $to,
@@ -84,17 +82,7 @@ function views_send_deliver($message) {
       'sender' => $from,
       'headers' => $headers,
     );
-
-    $engine = variable_get('mimemail_engine', 'mimemail') .'_mailengine';
-    if (!function_exists($engine)) {
-      return FALSE;
-    }
-
-    // Workaround a Mime Mail inclusion issue...
-    if ($engine == 'mimemail_mailengine') {
-      require_once(drupal_get_path('module', 'mimemail') .'/mimemail.inc');
-    }
-    return $engine('send', $mail);
+    return mimemail_send_message($mail);
   }
   else {
     $mail = array(
