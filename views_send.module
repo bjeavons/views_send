@@ -296,6 +296,9 @@ function views_send_mail_action($object, $context) {
   if (!user_access('mass mailing with views_send')) {
     return;
   }
+  if (!empty($context['rows'])){
+    $row = array_pop($context['rows']);
+  }
 
   // From: parts.
   $from_mail = $context['views_send_from_mail'];
@@ -306,9 +309,8 @@ function views_send_mail_action($object, $context) {
   if (($context['entity_type'] == 'user') && ($context['views_send_to_mail'] == 'mail')) {
     $to_mail = $object->mail;
   }
-  elseif (array_key_exists($context['views_send_to_mail'], $context['views_send_field_aliases']) && !empty($context['rows'])) {
+  elseif (array_key_exists($context['views_send_to_mail'], $context['views_send_field_aliases']) && !empty($row)) {
     $field_alias = $context['views_send_field_aliases'][$context['views_send_to_mail']];
-    $row = $context['rows'][$context['progress']['current'] - 1];
     $to_mail= $row->$field_alias;
   }
   else {
@@ -321,9 +323,8 @@ function views_send_mail_action($object, $context) {
     $to_name_arr = field_get_items($context['entity_type'],$object,$context['views_send_to_name']);
     $to_name = $to_name_arr[0]['value'];
   }
-  elseif (array_key_exists($context['views_send_to_name'], $context['views_send_field_aliases']) && !empty($context['rows'])) {
+  elseif (array_key_exists($context['views_send_to_name'], $context['views_send_field_aliases']) && !empty($row)) {
     $field_alias = $context['views_send_field_aliases'][$context['views_send_to_name']];
-    $row = $context['rows'][$context['progress']['current'] - 1];
     $to_name= $row->$field_alias;
   }
   else {
@@ -343,9 +344,8 @@ function views_send_mail_action($object, $context) {
       $token_arr = field_get_items($context['entity_type'], $object,$field);
       $token_values[] = isset($token_arr[0]['email']) ? $token_arr[0]['email'] : $token_arr[0]['value'];
     }
-    elseif (array_key_exists($field, $context['views_send_field_aliases']) && !empty($context['rows'])) {
+    elseif (array_key_exists($field, $context['views_send_field_aliases']) && !empty($row)) {
       $field_alias = $context['views_send_field_aliases'][$field];
-      $row = $context['rows'][$context['progress']['current'] - 1];
       $token_values[] = $row->$field_alias;
     }
     else {
